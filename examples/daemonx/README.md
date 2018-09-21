@@ -1,10 +1,10 @@
 # daemonx (extended daemon example)
 
-This is an attempt to rework the ctlra daemon example so that it becomes more useful. It also serves as a showcase utilizing most ctlra features, and as a hacking playground to explore the capabilities of the current flock of NI Maschine devices.
+This is an attempt to rework the ctlra daemon example so that it becomes more useful. It also serves as a showcase utilizing most ctlra features, and as a hacking playground to explore the graphical capabilities of ctlra.
 
 In particular, this version of the daemon adds the capability to output text on the screen, improves the local feedback, and also adds optional MIDI and MCP (Mackie control protocol) feedback, including support for scribble strips, timecode and meter displays. For good measure, it also throws in some external configuration capabilities and a screenshot utility via custom sysex messages. It also adds a Ctlra prefix to the ALSA client name, so that it can be distinguished more easily from the dummy MIDI device created by ALSA itself.
 
-Even if you don't utilize the MCP feedback and text output capabilities, daemonx offers a number of advantages over the original daemon program, most notably the options which enable you to select target devices and configure local and MIDI bindings to your liking.
+Even if you don't utilize the MCP feedback and text output capabilities, daemonx offers a number of advantages over the original daemon program, most notably the options which enable you to select target devices and configure local and MIDI feedback to your liking.
 
 **NOTE:** This hasn't been tested with anything but the Maschine Mk3 yet. The basic functionality including local and MIDI feedback should hopefully be portable across all devices supported by ctlra, but the screen output facilities most likely need some (or a lot of) work, depending on the particular device. Also, like the original daemon application, daemonx lacks integrated mappa support right now, so you will have to rely on external utilities to do any needed mapping of the controls on your device.
 
@@ -86,3 +86,11 @@ However, for the time being you can already enjoy a usable Mackie emulation for 
 
 [midizap]: https://github.com/agraef/midizap
 [Maschine.midizaprc]: https://github.com/agraef/midizap/blob/master/examples/Maschine.midizaprc
+
+## Bugs
+
+Please report any bugs that you find. I've noticed the following snags on my Arch-based system running the latest libusb (YMMV).
+
+- There seems to be a bug in libusb which makes ctlra hang when the device count drops to zero. (This isn't specific to the daemonx program, all examples included in the ctlra source exhibit this behavior on my system.) daemonx contains some code to work around this issue so that you can at least still interrupt the program with Ctrl+C when this happens. To enable that work-around, you need to configure ctlra from the toplevel source directory as follows: `meson build -Dusbfix=true`
+
+- As exhibited by the Maschine Mk3 Mackie emulation mentioned above, the rendering of the graphical display on the device lags quite noticeably. I've been looking into this and I'm confident that the delay is neither due to daemonx nor the ctlra library. I don't see any plausible causes for delay in the Mk3 backend either, so I guess that it's another libusb-related issue or maybe the hardware itself. No work-around for this issue is known at this time.
