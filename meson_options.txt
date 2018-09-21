@@ -2,3 +2,4 @@ option('avtka', type : 'boolean', value : true, description : 'Use Avtka library
 option('firmata', type : 'boolean', value : false, description : 'Use Firmatac library for serial devices')
 option('midi', type : 'boolean', value : false, description : 'Enable MIDI (only ALSA implemented, so Linux')
 option('examples', type: 'string', value: '', description: 'Comma-separated list of examples to build')
+option('usbfix', type : 'boolean', value : false, description : 'Work around the usb interface locking up when the device count drops to zero')
