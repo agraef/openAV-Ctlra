@@ -7,6 +7,7 @@
 #include <limits.h>
 #include <math.h>
 #include <fnmatch.h>
+#include <time.h>
 
 #include <cairo/cairo.h>
 
@@ -14,7 +15,7 @@
 #include "ctlra_cairo.h"
 #include "midi.h"
 
-static volatile uint32_t done;
+static volatile uint32_t done, screen_count;
 
 // AG: The num_dev counter keeps track of the number of connected devices, and
 // the auto_exit option, when enabled, causes the program to exit
@@ -134,6 +135,9 @@ struct daemon_t {
 	uint8_t rsm_status[3][8];
 	// screenshot flag
 	uint8_t screenie[2];
+	// screen initialization and finalization
+	uint8_t screen_init[2], screen_fini[2];
+	// cairo surface and context
         cairo_surface_t *img;
         cairo_t *cr;
 	struct ctlra_dev_info_t info;
@@ -655,6 +659,25 @@ int32_t daemon_screen_redraw_func(struct ctlra_dev_t *dev,
 	cairo_rectangle(cr, 0, 0, 480, 272);
 	cairo_fill(cr);
 
+	// AG XXXFIXME: We need to go to considerable lengths here just to get
+	// the screen cleared before we exit; maybe this should be handled in
+	// ctlra_exit() in some way?
+	if (done) {
+	  // simply clear the screen and bail out
+	  if (!daemon->screen_fini[screen_idx]) {
+	    ctlra_screen_cairo_to_device
+	      (dev, screen_idx, pixel_data, bytes, redraw_zone, daemon->img);
+	    daemon->screen_fini[screen_idx] = 1;
+	    screen_count--;
+	    return 1;
+	  } else
+	    // already done with finalization
+	    return 0;
+	} else if (!daemon->screen_init[screen_idx]) {
+	  screen_count++;
+	  daemon->screen_init[screen_idx] = 1;
+	}
+
 #if 0
 	// uncomment this and edit as needed to choose a typeface different
 	// from cairo's default sans serif font
@@ -1036,9 +1059,27 @@ int main(int argc, char **argv)
   }
   printf("daemon: connected devices: %d\n", num_devs);
 
-  while(!done) {
+  while(!done || screen_count > 0) {
     ctlra_idle_iter(ctlra);
     usleep(1000);
+  }
+
+  // AG: Another awful kludge here. The screens have already been cleared at
+  // this point, but apparently we need to give it some extra time so that any
+  // remaining data can be flushed. I found that if we don't do this, the
+  // screens might not be properly reinitialized and aren't usable any more if
+  // we rerun daemonx afterwards. At least that's what happens on my Maschine
+  // Mk3, YMMV. XXXFIXME: This really should be handled in ctlra_exit() in
+  // some way, maybe we need an extra screen finalization callback there?
+  struct timespec now, then;
+  int err = clock_gettime(CLOCK_MONOTONIC_RAW, &then);
+  while(!err) {
+    if ((err = clock_gettime(CLOCK_MONOTONIC_RAW, &now))) break;
+    double secs = now.tv_sec - then.tv_sec;
+    double nanos = now.tv_nsec - then.tv_nsec;
+    if (secs*1e9 + nanos > 1e9) break;
+    ctlra_idle_iter(ctlra);
+    usleep(100000);
   }
 
   ctlra_exit(ctlra);
